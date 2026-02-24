@@ -54,8 +54,7 @@ class ClearHistoryResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    llm_provider: str
-    embedding_provider: str
+    llm_model: str
     vector_store_ready: bool
 
 

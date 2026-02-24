@@ -40,7 +40,7 @@ export default function Header({ onClearChat }) {
                     </div>
                     <div>
                         <h1 className={styles.title}>RAG Knowledge Assistant</h1>
-                        <p className={styles.subtitle}>Powered by LangChain · FAISS · {health?.llm_provider?.toUpperCase() ?? '…'}</p>
+                        <p className={styles.subtitle}>Powered by LangChain · FAISS · Groq ({health?.llm_model ?? '…'})</p>
                     </div>
                 </div>
 

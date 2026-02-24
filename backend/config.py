@@ -10,15 +10,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # ── LLM ──────────────────────────────────────────────────────────────
-    llm_provider: str = "groq"           # "openai" | "groq"
-    openai_api_key: str = ""
+    # ── LLM (Groq) ───────────────────────────────────────────────────────
     groq_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
     groq_model: str = "llama-3.3-70b-versatile"
 
-    # ── Embeddings ───────────────────────────────────────────────────────
-    embedding_provider: str = "huggingface"  # "openai" | "huggingface"
+    # ── Embeddings (HuggingFace — free, local) ───────────────────────────
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # ── Paths ────────────────────────────────────────────────────────────
     documents_path: str = "./documents"

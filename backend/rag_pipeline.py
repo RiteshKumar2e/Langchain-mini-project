@@ -1,12 +1,9 @@
 """
 rag_pipeline.py
 ───────────────
-Core RAG (Retrieval-Augmented Generation) pipeline.
+Core RAG pipeline using Groq as the LLM and FAISS as the vector store.
 
-Responsibilities:
-  • Initialise / cache the LLM based on the configured provider.
-  • Build a retrieval-augmented QA chain with source attribution.
-  • Expose a single `ask()` function used by the API layer.
+Exposes a single `ask()` function used by the API layer.
 """
 
 from functools import lru_cache
@@ -15,7 +12,7 @@ from typing import Any
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
-from langchain_core.language_models import BaseLanguageModel
+from langchain_groq import ChatGroq
 
 from config import settings
 from embeddings import get_embeddings
@@ -23,13 +20,13 @@ from logger import get_logger
 
 log = get_logger(__name__)
 
-# ── Prompt template ──────────────────────────────────────────────────────────
+# ── Prompt ───────────────────────────────────────────────────────────────────
 RAG_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
     template="""You are a helpful and knowledgeable AI assistant.
 Use ONLY the context below to answer the user's question.
 If the context does not contain enough information to fully answer the question,
-say so clearly and do not make up information.
+say so clearly — do not make up information.
 
 Context:
 {context}
@@ -41,33 +38,17 @@ Answer:""",
 
 
 @lru_cache(maxsize=1)
-def get_llm() -> BaseLanguageModel:
-    """Return a cached LLM instance based on the configured provider."""
-    provider = settings.llm_provider.lower()
-    log.info("Initialising LLM — provider: %s", provider)
-
-    if provider == "openai":
-        if not settings.openai_api_key:
-            raise ValueError("OPENAI_API_KEY must be set when llm_provider=openai")
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=settings.openai_model,
-            openai_api_key=settings.openai_api_key,
-            temperature=0.2,
+def get_llm() -> ChatGroq:
+    """Return a cached Groq LLM instance."""
+    if not settings.groq_api_key:
+        raise ValueError(
+            "GROQ_API_KEY is not set. Add it to backend/.env and restart the server."
         )
-
-    if provider == "groq":
-        if not settings.groq_api_key:
-            raise ValueError("GROQ_API_KEY must be set when llm_provider=groq")
-        from langchain_groq import ChatGroq
-        return ChatGroq(
-            model=settings.groq_model,
-            groq_api_key=settings.groq_api_key,
-            temperature=0.2,
-        )
-
-    raise ValueError(
-        f"Unknown llm_provider='{provider}'. Choose 'openai' or 'groq'."
+    log.info("Initialising Groq LLM — model: %s", settings.groq_model)
+    return ChatGroq(
+        model=settings.groq_model,
+        groq_api_key=settings.groq_api_key,
+        temperature=0.2,
     )
 
 
@@ -100,7 +81,7 @@ def build_qa_chain(vectorstore: FAISS) -> RetrievalQA:
         return_source_documents=True,
         chain_type_kwargs={"prompt": RAG_PROMPT},
     )
-    log.info("QA chain built (retrieval_k=%d)", settings.retrieval_k)
+    log.info("QA chain built (retrieval_k=%d, model=%s)", settings.retrieval_k, settings.groq_model)
     return chain
 
 
@@ -112,26 +93,22 @@ def format_sources(source_docs: list) -> list[dict[str, Any]]:
     for doc in source_docs:
         meta = doc.metadata or {}
         source_file = meta.get("source", "Unknown")
-        # Normalise path separators and extract filename
         filename = source_file.replace("\\", "/").split("/")[-1]
 
-        # Deduplicate by filename
         if filename in seen:
             continue
         seen.add(filename)
 
-        sources.append(
-            {
-                "filename": filename,
-                "snippet": doc.page_content[:300].strip() + "…",
-                "start_index": meta.get("start_index"),
-            }
-        )
+        sources.append({
+            "filename": filename,
+            "snippet": doc.page_content[:300].strip() + "…",
+            "start_index": meta.get("start_index"),
+        })
 
     return sources
 
 
-# ── Module-level singletons initialised lazily on first request ──────────────
+# ── Module-level singletons (lazily initialised on first request) ────────────
 _vectorstore: FAISS | None = None
 _qa_chain: RetrievalQA | None = None
 
@@ -147,13 +124,8 @@ def get_qa_chain() -> RetrievalQA:
 
 def ask(question: str) -> dict[str, Any]:
     """
-    Main entry point for the RAG pipeline.
-
-    Returns:
-        {
-          "answer": str,
-          "sources": [{"filename": str, "snippet": str, ...}]
-        }
+    Main RAG entry point.
+    Returns {"answer": str, "sources": [{"filename", "snippet", ...}]}
     """
     if not question.strip():
         raise ValueError("Question must not be empty.")

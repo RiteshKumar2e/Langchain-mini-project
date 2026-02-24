@@ -29,8 +29,8 @@ async def lifespan(app: FastAPI):
     """Pre-warm the QA chain on startup so the first request is fast."""
     log.info("═══════════════════════════════════════════")
     log.info("  LangChain RAG API — starting up")
-    log.info("  LLM provider   : %s", settings.llm_provider)
-    log.info("  Embeddings     : %s", settings.embedding_provider)
+    log.info("  LLM            : Groq / %s", settings.groq_model)
+    log.info("  Embeddings     : HuggingFace (all-MiniLM-L6-v2)")
     log.info("  Vector store   : %s", settings.store_path)
     log.info("═══════════════════════════════════════════")
 

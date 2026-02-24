@@ -86,8 +86,7 @@ async def health_check() -> HealthResponse:
     vector_store_ready = settings.store_path.exists()
     return HealthResponse(
         status="ok",
-        llm_provider=settings.llm_provider,
-        embedding_provider=settings.embedding_provider,
+        llm_model=settings.groq_model,
         vector_store_ready=vector_store_ready,
     )
 
