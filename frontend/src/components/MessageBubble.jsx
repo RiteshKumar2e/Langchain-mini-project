@@ -2,7 +2,7 @@
  * MessageBubble.jsx
  * ─────────────────
  * Renders one conversation turn — user question or assistant answer.
- * Assistant bubbles render Markdown + collapsible source citations.
+ * Assistant bubbles render Markdown + collapsible source citations with scores.
  */
 
 import { useState } from 'react'
@@ -26,17 +26,29 @@ function UserBubble({ content }) {
     )
 }
 
+/* ── Similarity score badge ──────────────────────────────────────────────── */
+function ScoreBadge({ score }) {
+    const pct = Math.round(score * 100)
+    const color = pct >= 70 ? 'high' : pct >= 45 ? 'mid' : 'low'
+    return (
+        <span className={`${styles.scoreBadge} ${styles[`score_${color}`]}`}>
+            {pct}% match
+        </span>
+    )
+}
+
 /* ── Source card ─────────────────────────────────────────────────────────── */
 function SourceCard({ source, index }) {
-    const ext = source.filename.split('.').pop()?.toUpperCase() || 'FILE'
+    const ext = source.filename.split('.').pop()?.toUpperCase() || 'DOC'
 
     return (
         <div className={styles.sourceCard}>
             <div className={styles.sourceCardHeader}>
                 <span className={styles.sourceNum}>{index + 1}</span>
-                <div className={styles.sourceInfo}>
-                    <code className={styles.sourceFilename}>{source.filename}</code>
-                    <span className={styles.sourceExt}>{ext}</span>
+                <code className={styles.sourceFilename}>{source.filename}</code>
+                <span className={styles.sourceExt}>{ext}</span>
+                <div className={styles.sourceCardRight}>
+                    <ScoreBadge score={source.similarity_score} />
                 </div>
             </div>
             <p className={styles.sourceSnippet}>{source.snippet}</p>
@@ -45,7 +57,7 @@ function SourceCard({ source, index }) {
 }
 
 /* ── Assistant bubble ─────────────────────────────────────────────────────── */
-function AssistantBubble({ content, sources, isError }) {
+function AssistantBubble({ content, sources, isError, chunksRetrieved }) {
     const [showSources, setShowSources] = useState(false)
     const hasSources = sources?.length > 0
 
@@ -59,6 +71,7 @@ function AssistantBubble({ content, sources, isError }) {
             </div>
 
             <div className={`${styles.bubble} ${styles.assistantBubble} ${isError ? styles.errorBubble : ''}`}>
+
                 {isError ? (
                     <div className={styles.errorContent}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className={styles.errorIcon}>
@@ -85,11 +98,14 @@ function AssistantBubble({ content, sources, isError }) {
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                                 <polyline points="14 2 14 8 20 8" stroke="currentColor" fill="none" strokeWidth="2" />
                             </svg>
-                            {sources.length} source{sources.length !== 1 ? 's' : ''} used
+                            {sources.length} source{sources.length !== 1 ? 's' : ''} cited
+                            {chunksRetrieved > 0 && (
+                                <span className={styles.chunkCount}>({chunksRetrieved} chunks retrieved)</span>
+                            )}
                             <svg
                                 width="11" height="11" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" strokeWidth="2.5"
-                                style={{ transform: showSources ? 'rotate(180deg)' : '', transition: 'transform 0.2s' }}
+                                style={{ transform: showSources ? 'rotate(180deg)' : '', transition: 'transform 0.2s', marginLeft: 'auto' }}
                             >
                                 <polyline points="6 9 12 15 18 9" />
                             </svg>
@@ -117,6 +133,7 @@ export default function MessageBubble({ message }) {
             content={message.content}
             sources={message.sources}
             isError={message.isError}
+            chunksRetrieved={message.chunksRetrieved}
         />
     )
 }

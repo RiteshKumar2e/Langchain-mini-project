@@ -1,44 +1,79 @@
 """
 schemas.py
 ──────────
-Pydantic request / response models shared between the router and tests.
-Keeping schemas separate avoids circular imports and makes the API contract
-easy to discover.
+All Pydantic request/response models for the API layer.
+
+Keeping schemas in one file:
+  • Avoids circular imports between router.py and other modules.
+  • Makes the API contract easy to audit at a glance.
+  • Simplifies OpenAPI doc generation (FastAPI introspects these).
 """
 
 from typing import Any
 from pydantic import BaseModel, Field
 
 
-# ── Request ──────────────────────────────────────────────────────────────────
+# ── Requests ──────────────────────────────────────────────────────────────────
 
 class QuestionRequest(BaseModel):
-    question: str = Field(..., min_length=1, max_length=2000, description="The user's question")
+    """POST /ask — user question with optional conversation history."""
+    question: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Natural-language question to answer from the knowledge base",
+        examples=["What is Retrieval-Augmented Generation?"],
+    )
     conversation_history: list[dict[str, str]] = Field(
         default_factory=list,
-        description="Optional prior turns: [{'role': 'user'|'assistant', 'content': '...'}]",
+        description=(
+            "Prior conversation turns for follow-up question support. "
+            "Format: [{\"role\": \"user\" | \"assistant\", \"content\": \"...\"}]. "
+            "Maximum last 6 turns are used."
+        ),
+    )
+    top_k: int | None = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Override default retrieval_k for this request (optional)",
     )
 
 
-# ── Response ─────────────────────────────────────────────────────────────────
+# ── Responses ─────────────────────────────────────────────────────────────────
 
 class SourceDocument(BaseModel):
-    filename: str
-    snippet: str
-    start_index: int | None = None
+    """One cited source document included in an answer."""
+    filename: str = Field(description="Name of the source file")
+    snippet: str = Field(description="Relevant excerpt from the document")
+    similarity_score: float = Field(
+        description="Cosine similarity score [0, 1] — higher = more relevant",
+        ge=0.0,
+        le=1.0,
+    )
+    start_index: int | None = Field(
+        default=None,
+        description="Character offset of this chunk in the original document",
+    )
 
 
 class QuestionResponse(BaseModel):
+    """POST /ask — answer with grounded sources and retrieval metadata."""
+    question: str
     answer: str
     sources: list[SourceDocument]
-    question: str
+    chunks_retrieved: int = Field(
+        description="Number of chunks that passed the similarity threshold"
+    )
 
 
 class HistoryEntry(BaseModel):
+    """One persisted Q&A interaction."""
     timestamp: str
     question: str
-    answer: str
-    sources: list[dict[str, Any]]
+    answer: str = ""
+    sources: list[dict[str, Any]] = Field(default_factory=list)
+    chunks_retrieved: int = 0
     error: str | None = None
 
 
@@ -53,11 +88,21 @@ class ClearHistoryResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """GET /health — system readiness."""
     status: str
-    llm_model: str
+    groq_model: str
+    embedding_model: str
     vector_store_ready: bool
+    total_vectors: int | None = Field(
+        default=None,
+        description="Total embeddings in the FAISS index (None if not loaded)",
+    )
+    chunk_size: int
+    retrieval_k: int
 
 
 class IngestResponse(BaseModel):
+    """POST /ingest — ingestion result."""
     message: str
+    documents_loaded: int | None = None
     chunks_indexed: int | None = None

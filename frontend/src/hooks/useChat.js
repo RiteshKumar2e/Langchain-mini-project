@@ -29,6 +29,7 @@ export function useChat() {
                 role: 'assistant',
                 content: data.answer,
                 sources: data.sources || [],
+                chunksRetrieved: data.chunks_retrieved || 0,
             }
             setMessages(prev => [...prev, assistantMsg])
 

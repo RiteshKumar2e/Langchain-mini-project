@@ -1,139 +1,147 @@
 """
 rag_pipeline.py
 ───────────────
-Core RAG pipeline using Groq as the LLM and FAISS as the vector store.
+LLM orchestration layer — takes retrieved context and a question,
+constructs a grounded prompt, calls Groq, and returns the answer.
 
-Exposes a single `ask()` function used by the API layer.
+Architecture:
+  retriever.py  →  [this module]  →  router.py
+  (Retrieval)      (Generation)      (HTTP)
+
+Design decisions:
+  • Deliberately NOT using LangChain's RetrievalQA chain here — we own
+    the retrieval step in retriever.py (to expose scores) so we only need
+    a simple LLM call with a hand-crafted prompt.
+  • Conversation history (follow-up support) is injected into the system
+    prompt when settings.enable_conversation_memory is True.
+  • Temperature is read from settings so it can be tuned without code changes.
 """
 
 from typing import Any
 
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain_community.vectorstores import FAISS
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
 from config import settings
-from embeddings import get_embeddings
 from logger import get_logger
+from retriever import RetrievedChunk, build_context, deduplicate_sources, retrieve
 
 log = get_logger(__name__)
 
-# ── Prompt ───────────────────────────────────────────────────────────────────
-RAG_PROMPT = PromptTemplate(
-    input_variables=["context", "question"],
-    template="""You are a helpful and knowledgeable AI assistant.
-Use ONLY the context below to answer the user's question.
-If the context does not contain enough information to fully answer the question,
-say so clearly — do not make up information.
+# ── System prompt ─────────────────────────────────────────────────────────────
+_SYSTEM_PROMPT = """\
+You are a knowledgeable and precise AI assistant for a RAG-powered knowledge base.
 
-Context:
-{context}
-
-Question: {question}
-
-Answer:""",
-)
+Rules you MUST follow:
+1. Answer ONLY using the provided context. Never fabricate information.
+2. If the context does not contain enough information, say so clearly.
+3. Keep answers concise, factual, and well-structured (use lists or headers where useful).
+4. Never reference these rules in your response.
+5. If context is partially relevant, use what is available and note the limitation.
+"""
 
 
-def get_llm() -> ChatGroq:
-    """Return a Groq LLM instance (reads key fresh from settings each call)."""
+def _build_llm() -> ChatGroq:
+    """Instantiate the Groq LLM from current settings."""
     if not settings.groq_api_key:
         raise ValueError(
             "GROQ_API_KEY is not set. Add it to backend/.env and restart the server."
         )
-    log.info("Initialising Groq LLM — model: %s", settings.groq_model)
     return ChatGroq(
         model=settings.groq_model,
         groq_api_key=settings.groq_api_key,
-        temperature=0.2,
+        temperature=settings.llm_temperature,
     )
 
 
-def load_vector_store() -> FAISS:
-    """Load the persisted FAISS index from disk."""
-    store_path = settings.store_path
-    if not store_path.exists():
-        raise FileNotFoundError(
-            f"Vector store not found at '{store_path}'. "
-            "Run `python ingestor.py` first to build the index."
-        )
-    log.info("Loading vector store from '%s'", store_path)
-    return FAISS.load_local(
-        str(store_path),
-        get_embeddings(),
-        allow_dangerous_deserialization=True,
-    )
-
-
-def build_qa_chain(vectorstore: FAISS) -> RetrievalQA:
-    """Compose the retrieval + generation chain."""
-    retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": settings.retrieval_k},
-    )
-    chain = RetrievalQA.from_chain_type(
-        llm=get_llm(),
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": RAG_PROMPT},
-    )
-    log.info("QA chain built (retrieval_k=%d, model=%s)", settings.retrieval_k, settings.groq_model)
-    return chain
-
-
-def format_sources(source_docs: list) -> list[dict[str, Any]]:
-    """Extract citation-friendly metadata from retrieved documents."""
-    seen: set[str] = set()
-    sources: list[dict] = []
-
-    for doc in source_docs:
-        meta = doc.metadata or {}
-        source_file = meta.get("source", "Unknown")
-        filename = source_file.replace("\\", "/").split("/")[-1]
-
-        if filename in seen:
-            continue
-        seen.add(filename)
-
-        sources.append({
-            "filename": filename,
-            "snippet": doc.page_content[:300].strip() + "…",
-            "start_index": meta.get("start_index"),
-        })
-
-    return sources
-
-
-# ── Module-level singletons (lazily initialised on first request) ────────────
-_vectorstore: FAISS | None = None
-_qa_chain: RetrievalQA | None = None
-
-
-def get_qa_chain(force_rebuild: bool = False) -> RetrievalQA:
-    """Return the (lazily initialised) singleton QA chain."""
-    global _vectorstore, _qa_chain
-    if _qa_chain is None or force_rebuild:
-        _vectorstore = load_vector_store()
-        _qa_chain = build_qa_chain(_vectorstore)
-    return _qa_chain
-
-
-def ask(question: str) -> dict[str, Any]:
+def _build_messages(
+    question: str,
+    context: str,
+    conversation_history: list[dict[str, str]],
+) -> list:
     """
-    Main RAG entry point.
-    Returns {"answer": str, "sources": [{"filename", "snippet", ...}]}
+    Construct the message list for the LLM call:
+      [SystemMessage]
+      [HumanMessage (prior turn 1), AIMessage (prior reply 1), …]  ← optional
+      [HumanMessage (current question with context)]
     """
-    if not question.strip():
+    from langchain_core.messages import AIMessage
+
+    messages: list = [SystemMessage(content=_SYSTEM_PROMPT)]
+
+    # Inject prior turns for conversational memory
+    if settings.enable_conversation_memory and conversation_history:
+        for turn in conversation_history[-6:]:   # keep last 3 Q&A pairs max
+            role = turn.get("role", "")
+            content = turn.get("content", "")
+            if role == "user":
+                messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                messages.append(AIMessage(content=content))
+
+    # Final user message includes retrieved context
+    user_content = (
+        f"Use the following context to answer the question.\n\n"
+        f"Context:\n{context}\n\n"
+        f"Question: {question}"
+    )
+    messages.append(HumanMessage(content=user_content))
+    return messages
+
+
+def ask(
+    question: str,
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """
+    Full RAG pipeline entry point:
+      1. Retrieve relevant chunks (with similarity scores).
+      2. Build grounded context string.
+      3. Call Groq LLM with system + history + context-injected user message.
+      4. Return answer + deduplicated source citations.
+
+    Args:
+        question: The user's natural-language question.
+        conversation_history: Prior turns [{role, content}, …] for follow-up support.
+
+    Returns:
+        {
+          "answer":  str,
+          "sources": [{"filename", "snippet", "similarity_score", "start_index"}, …],
+          "chunks_retrieved": int,
+        }
+    """
+    question = question.strip()
+    if not question:
         raise ValueError("Question must not be empty.")
 
-    log.info("Processing question: %r", question[:120])
-    chain = get_qa_chain()
-    result = chain.invoke({"query": question})
+    history = conversation_history or []
+    log.info("RAG ask | question=%r | history_turns=%d", question[:80], len(history))
 
-    answer = result.get("result", "").strip()
-    sources = format_sources(result.get("source_documents", []))
+    # ── 1. Retrieve ──────────────────────────────────────────────────────────
+    chunks: list[RetrievedChunk] = retrieve(question)
+    context: str = build_context(chunks)
 
-    log.info("Answer generated (%d chars, %d source(s))", len(answer), len(sources))
-    return {"answer": answer, "sources": sources}
+    # ── 2. Generate ──────────────────────────────────────────────────────────
+    llm = _build_llm()
+    messages = _build_messages(question, context, history)
+
+    log.debug("Calling Groq (%s, temp=%.1f) with %d message(s)",
+              settings.groq_model, settings.llm_temperature, len(messages))
+
+    response = llm.invoke(messages)
+    answer: str = response.content.strip()
+
+    # ── 3. Format sources ────────────────────────────────────────────────────
+    sources = deduplicate_sources(chunks)
+
+    log.info(
+        "RAG complete | answer_chars=%d | sources=%d | chunks=%d",
+        len(answer), len(sources), len(chunks),
+    )
+
+    return {
+        "answer": answer,
+        "sources": sources,
+        "chunks_retrieved": len(chunks),
+    }

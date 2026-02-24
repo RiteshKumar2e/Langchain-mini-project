@@ -1,15 +1,25 @@
 """
 main.py
 ───────
-FastAPI application entry point.
+FastAPI application factory and startup lifecycle.
 
-Startup sequence:
-  1. Configure CORS.
-  2. Attempt to pre-warm the RAG pipeline (non-fatal if index missing).
-  3. Mount all routes via the router module.
+Architecture overview:
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  HTTP Clients  →  FastAPI (main.py)                                      │
+  │                      └─ /api/* → router.py                              │
+  │                            ├─ rag_pipeline.py  (LLM generation)         │
+  │                            │    └─ retriever.py (FAISS retrieval)       │
+  │                            │         └─ embeddings.py                   │
+  │                            ├─ ingestor.py       (document indexing)     │
+  │                            └─ history.py        (JSONL persistence)     │
+  └──────────────────────────────────────────────────────────────────────────┘
 
-Run with:
+Run locally:
     uvicorn main:app --reload --port 8000
+
+Interactive docs:
+    http://localhost:8000/docs    (Swagger UI)
+    http://localhost:8000/redoc  (ReDoc)
 """
 
 from contextlib import asynccontextmanager
@@ -26,44 +36,61 @@ log = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Pre-warm the QA chain on startup so the first request is fast."""
-    log.info("═══════════════════════════════════════════")
-    log.info("  LangChain RAG API — starting up")
-    log.info("  LLM            : Groq / %s", settings.groq_model)
-    log.info("  Embeddings     : HuggingFace (all-MiniLM-L6-v2)")
-    log.info("  Vector store   : %s", settings.store_path)
-    log.info("═══════════════════════════════════════════")
+    """
+    Startup: log configuration summary and pre-warm the retrieval layer
+    so the first user request is fast.
+    Shutdown: no cleanup needed (FAISS is file-based, no connections to close).
+    """
+    log.info("═" * 55)
+    log.info("  LangChain RAG Platform  —  starting up")
+    log.info("  LLM model     : %s", settings.groq_model)
+    log.info("  Embedding     : %s", settings.embedding_model)
+    log.info("  Temperature   : %.1f", settings.llm_temperature)
+    log.info("  Chunk size    : %d (overlap %d)", settings.chunk_size, settings.chunk_overlap)
+    log.info("  Retrieval K   : %d", settings.retrieval_k)
+    log.info("  Memory        : %s", "enabled" if settings.enable_conversation_memory else "disabled")
+    log.info("  Vector store  : %s", settings.store_path)
+    log.info("═" * 55)
 
-    try:
-        from rag_pipeline import get_qa_chain
-        get_qa_chain()
-        log.info("QA chain pre-warmed successfully.")
-    except FileNotFoundError:
+    # Pre-warm: attempt to load the vector store into cache on startup
+    if settings.store_path.exists():
+        try:
+            from retriever import get_vector_store
+            vs = get_vector_store()
+            log.info("Vector store ready — %d embeddings pre-loaded", vs.index.ntotal)
+        except Exception as exc:
+            log.warning("Could not pre-load vector store: %s", exc)
+    else:
         log.warning(
-            "Vector store not found — run `python ingestor.py` to build the index. "
-            "The /ask endpoint will return 503 until then."
+            "Vector store not found at '%s'. "
+            "Call POST /api/ingest or run `python ingestor.py` before querying.",
+            settings.store_path,
         )
-    except Exception as exc:
-        log.warning("Could not pre-warm QA chain: %s", exc)
 
-    yield  # Application is running
+    yield  # Application is live
 
-    log.info("LangChain RAG API — shutting down.")
+    log.info("LangChain RAG Platform — shutdown complete")
 
 
+# ── Application ────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="LangChain RAG API",
+    title="LangChain RAG Platform",
     description=(
-        "A Retrieval-Augmented Generation (RAG) API built with LangChain and FastAPI. "
-        "Submit questions and receive answers grounded in a curated knowledge base."
+        "Production-ready Retrieval-Augmented Generation API built with "
+        "LangChain, FAISS, and Groq. Submit natural-language questions and "
+        "receive grounded answers with source citations and similarity scores."
     ),
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_tags=[
+        {"name": "RAG", "description": "Retrieval-Augmented Generation endpoints"},
+        {"name": "System", "description": "Health, history, and management endpoints"},
+    ],
 )
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
+# ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -72,14 +99,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routes ───────────────────────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────────────────────────
 app.include_router(router, prefix="/api")
 
 
 @app.get("/", include_in_schema=False)
 async def root():
+    """Redirect hint — point users to the docs."""
     return {
-        "message": "LangChain RAG API is running.",
+        "message": "LangChain RAG Platform API is running.",
         "docs": "/docs",
         "health": "/api/health",
     }
