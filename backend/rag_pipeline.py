@@ -6,7 +6,6 @@ Core RAG pipeline using Groq as the LLM and FAISS as the vector store.
 Exposes a single `ask()` function used by the API layer.
 """
 
-from functools import lru_cache
 from typing import Any
 
 from langchain.chains import RetrievalQA
@@ -37,9 +36,8 @@ Answer:""",
 )
 
 
-@lru_cache(maxsize=1)
 def get_llm() -> ChatGroq:
-    """Return a cached Groq LLM instance."""
+    """Return a Groq LLM instance (reads key fresh from settings each call)."""
     if not settings.groq_api_key:
         raise ValueError(
             "GROQ_API_KEY is not set. Add it to backend/.env and restart the server."
@@ -113,10 +111,10 @@ _vectorstore: FAISS | None = None
 _qa_chain: RetrievalQA | None = None
 
 
-def get_qa_chain() -> RetrievalQA:
+def get_qa_chain(force_rebuild: bool = False) -> RetrievalQA:
     """Return the (lazily initialised) singleton QA chain."""
     global _vectorstore, _qa_chain
-    if _qa_chain is None:
+    if _qa_chain is None or force_rebuild:
         _vectorstore = load_vector_store()
         _qa_chain = build_qa_chain(_vectorstore)
     return _qa_chain
