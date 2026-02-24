@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     try:
         ingest(force_rebuild=args.force)
-        print("\n✅ Ingestion complete. You can now start the API server.")
+        print("\nIngestion complete. Vector store is ready. You can now start the API server.")
     except Exception as exc:
         log.exception("Ingestion failed: %s", exc)
         raise SystemExit(1) from exc

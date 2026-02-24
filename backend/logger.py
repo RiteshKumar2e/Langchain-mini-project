@@ -18,7 +18,9 @@ def get_logger(name: str) -> logging.Logger:
 
     logger.setLevel(logging.INFO)
 
-    handler = logging.StreamHandler(sys.stdout)
+    # Use errors="replace" so non-ASCII chars (emoji etc.) never crash on Windows
+    stream = open(sys.stdout.fileno(), mode="w", encoding="utf-8", errors="replace", closefd=False)
+    handler = logging.StreamHandler(stream)
     handler.setLevel(logging.INFO)
 
     formatter = logging.Formatter(
