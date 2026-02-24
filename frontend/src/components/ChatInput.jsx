@@ -1,26 +1,18 @@
 /**
  * ChatInput.jsx
  * ─────────────
- * Auto-growing textarea + send button.
- * Submits on Enter (Shift+Enter for newline).
+ * Auto-growing textarea + send button at the bottom of the screen.
+ * Enter to send, Shift+Enter for newlines.
  */
 
 import { useState, useRef, useEffect } from 'react'
 import styles from './ChatInput.module.css'
 
-const SUGGESTIONS = [
-    'What is RAG?',
-    'How does LangChain work?',
-    'Explain the transformer attention mechanism',
-    'What are the types of machine learning?',
-    'Compare FAISS with other vector databases',
-]
-
-export default function ChatInput({ onSend, loading, disabled, showSuggestions }) {
+export default function ChatInput({ onSend, loading }) {
     const [value, setValue] = useState('')
     const textareaRef = useRef(null)
 
-    // Auto-resize textarea
+    /* Auto-resize */
     useEffect(() => {
         const el = textareaRef.current
         if (!el) return
@@ -28,10 +20,11 @@ export default function ChatInput({ onSend, loading, disabled, showSuggestions }
         el.style.height = Math.min(el.scrollHeight, 160) + 'px'
     }, [value])
 
+    const canSend = value.trim().length > 0 && !loading
+
     const handleSubmit = () => {
-        const q = value.trim()
-        if (!q || loading || disabled) return
-        onSend(q)
+        if (!canSend) return
+        onSend(value.trim())
         setValue('')
     }
 
@@ -44,57 +37,44 @@ export default function ChatInput({ onSend, loading, disabled, showSuggestions }
 
     return (
         <div className={styles.wrapper}>
-            {showSuggestions && (
-                <div className={styles.suggestions}>
-                    <p className={styles.suggestLabel}>Try asking:</p>
-                    <div className={styles.chips}>
-                        {SUGGESTIONS.map((s) => (
-                            <button
-                                key={s}
-                                className={styles.chip}
-                                onClick={() => { setValue(s); textareaRef.current?.focus() }}
-                                disabled={loading || disabled}
-                            >
-                                {s}
-                            </button>
-                        ))}
-                    </div>
+            <div className={styles.container}>
+                <div className={`${styles.inputBox} ${loading ? styles.inputLoading : ''}`}>
+                    <textarea
+                        ref={textareaRef}
+                        id="question-input"
+                        className={styles.textarea}
+                        placeholder="Ask a question… (Enter ↵ to send)"
+                        value={value}
+                        onChange={e => setValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={loading}
+                        rows={1}
+                    />
+
+                    <button
+                        id="send-button"
+                        className={`${styles.sendBtn} ${canSend ? styles.sendActive : ''}`}
+                        onClick={handleSubmit}
+                        disabled={!canSend}
+                        title="Send (Enter)"
+                    >
+                        {loading ? (
+                            <span className={styles.spinner} />
+                        ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                        )}
+                    </button>
                 </div>
-            )}
 
-            <div className={styles.inputRow}>
-                <textarea
-                    ref={textareaRef}
-                    id="question-input"
-                    className={styles.textarea}
-                    placeholder="Ask anything about the knowledge base… (Enter to send)"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={loading || disabled}
-                    rows={1}
-                />
-                <button
-                    id="send-button"
-                    className={`btn btn-primary ${styles.sendBtn}`}
-                    onClick={handleSubmit}
-                    disabled={!value.trim() || loading || disabled}
-                    title="Send (Enter)"
-                >
-                    {loading ? (
-                        <span className={styles.spinner} />
-                    ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                    )}
-                </button>
+                <p className={styles.hint}>
+                    <kbd>Enter</kbd> send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> newline
+                    {loading && <span className={styles.hintLoading}> · Generating answer…</span>}
+                </p>
             </div>
-
-            <p className={styles.hint}>
-                <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for a new line
-            </p>
         </div>
     )
 }

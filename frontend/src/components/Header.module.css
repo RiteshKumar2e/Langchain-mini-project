@@ -1,98 +1,130 @@
 .header {
     background: var(--color-surface);
-    border-bottom: 1.5px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
     box-shadow: var(--shadow-xs);
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-shrink: 0;
 }
 
 .inner {
-    max-width: 1100px;
+    max-width: 840px;
     margin: 0 auto;
-    padding: var(--space-3) var(--space-6);
+    padding: 0 var(--space-6);
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
 }
 
+/* ── Brand ───────────────────────────────────────────────────────────────── */
 .brand {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    min-width: 0;
 }
 
-.logo {
+.logoBox {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary-light);
+    border: 1.5px solid var(--color-primary-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    line-height: 0;
 }
 
-.title {
-    font-size: var(--text-lg);
+.brandText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.brandName {
+    font-size: var(--text-sm);
     font-weight: 700;
     color: var(--color-text);
-    line-height: 1.2;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
 }
 
-.subtitle {
-    font-size: var(--text-xs);
+.brandSub {
+    font-size: 10px;
     color: var(--color-text-subtle);
-    margin-top: 1px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
 }
 
+/* ── Right ───────────────────────────────────────────────────────────────── */
 .right {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-2);
     flex-shrink: 0;
 }
 
-.status {
+.healthPill {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: 6px;
     font-size: var(--text-xs);
     font-weight: 500;
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-full);
     border: 1.5px solid transparent;
+    letter-spacing: 0.01em;
+    font-family: var(--font-mono);
 }
 
-.success {
+.pillReady {
     background: var(--color-accent-light);
     color: var(--color-accent);
-    border-color: rgba(12, 166, 120, 0.2);
+    border-color: #b5edd9;
 }
 
-.warning {
-    background: var(--color-warning-light);
-    color: var(--color-warning);
-    border-color: rgba(230, 119, 0, 0.2);
+.pillWaiting {
+    background: var(--color-surface-alt);
+    color: var(--color-text-subtle);
+    border-color: var(--color-border);
 }
 
-.error {
-    background: var(--color-error-light);
-    color: var(--color-error);
-    border-color: rgba(201, 42, 42, 0.2);
-}
-
-.dot {
+.statusDot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
 }
 
-.dot_success {
+.ready {
     background: var(--color-accent);
-    animation: pulse 2s infinite;
+    animation: pulse 2.5s ease-in-out infinite;
 }
 
-.dot_warning {
-    background: var(--color-warning);
+.notReady {
+    background: var(--color-text-subtle);
 }
 
-.dot_error {
-    background: var(--color-error);
+/* ── Icon buttons ────────────────────────────────────────────────────────── */
+.iconBtn {
+    padding: var(--space-2) var(--space-3) !important;
+    height: 34px;
+}
+
+.btnLabel {
+    font-size: var(--text-xs);
+}
+
+@media (max-width: 480px) {
+    .btnLabel {
+        display: none;
+    }
+
+    .healthPill span:not(.statusDot) {
+        display: none;
+    }
 }
