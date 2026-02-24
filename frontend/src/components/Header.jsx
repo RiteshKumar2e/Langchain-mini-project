@@ -52,7 +52,7 @@ export default function Header({ onHistoryOpen, onClearChat }) {
                     {/* Health pill */}
                     <div className={`${styles.healthPill} ${isReady ? styles.pillReady : styles.pillWaiting}`}>
                         <StatusDot ready={isReady} />
-                        <span>{isReady ? `${model}` : (health ? 'Index missing' : 'Connecting…')}</span>
+                        <span>{isReady ? 'Ready' : (health ? 'Not ready' : 'Connecting…')}</span>
                     </div>
 
                     {/* History button */}
