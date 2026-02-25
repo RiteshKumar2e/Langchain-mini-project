@@ -151,6 +151,69 @@
     gap: var(--space-2);
 }
 
+.itemRight {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+/* ── Delete button ───────────────────────────────────────────────────────── */
+.deleteBtn {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-subtle);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--font-sans);
+    transition:
+        background var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        transform var(--transition-fast);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.itemHeader:hover .deleteBtn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.deleteBtn:hover:not(:disabled) {
+    background: var(--color-error-light);
+    color: var(--color-error);
+    border-color: rgba(239, 68, 68, 0.2);
+    transform: scale(1.1);
+}
+
+.deleteBtn:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.deletingSpinner {
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-error);
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.65s linear infinite;
+}
+
+.itemDeleting {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+}
+
 .itemIndex {
     font-size: 10px;
     font-weight: 800;
@@ -175,6 +238,7 @@
     line-height: 1.45;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }

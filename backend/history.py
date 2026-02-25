@@ -73,3 +73,22 @@ def clear() -> int:
     _HISTORY_FILE.write_text("", encoding="utf-8")
     log.info("History cleared — %d entries removed", count)
     return count
+
+
+def delete_entry(index: int) -> bool:
+    """Delete a single entry by its 0-based index from the full history list.
+    Returns True if an entry was deleted, False if index was out of range.
+    """
+    if not _HISTORY_FILE.exists():
+        return False
+    try:
+        lines = [l for l in _HISTORY_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if index < 0 or index >= len(lines):
+            return False
+        del lines[index]
+        _HISTORY_FILE.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+        log.info("History entry %d deleted", index)
+        return True
+    except (OSError, json.JSONDecodeError) as exc:
+        log.warning("Could not delete history entry %d: %s", index, exc)
+        return False

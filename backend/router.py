@@ -20,6 +20,7 @@ from config import settings
 from logger import get_logger
 from schemas import (
     ClearHistoryResponse,
+    DeleteHistoryResponse,
     HealthResponse,
     HistoryResponse,
     IngestResponse,
@@ -211,4 +212,32 @@ async def clear_history() -> ClearHistoryResponse:
     return ClearHistoryResponse(
         removed=removed,
         message=f"Cleared {removed} history entry/entries.",
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DELETE /history/{index}
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.delete(
+    "/history/{index}",
+    response_model=DeleteHistoryResponse,
+    summary="Delete a single history entry by its index",
+    description=(
+        "Deletes one entry from the history log by its 0-based position in the "
+        "full chronological list. The index is assigned by the backend at fetch time."
+    ),
+    tags=["System"],
+)
+async def delete_history_entry(index: int) -> DeleteHistoryResponse:
+    deleted = hist.delete_entry(index)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"History entry at index {index} not found.",
+        )
+    return DeleteHistoryResponse(
+        deleted=True,
+        index=index,
+        message=f"Entry {index} deleted successfully.",
     )

@@ -87,6 +87,13 @@ class ClearHistoryResponse(BaseModel):
     message: str
 
 
+class DeleteHistoryResponse(BaseModel):
+    """DELETE /history/{index} — result of deleting one entry."""
+    deleted: bool
+    index: int
+    message: str
+
+
 class HealthResponse(BaseModel):
     """GET /health — system readiness."""
     status: str

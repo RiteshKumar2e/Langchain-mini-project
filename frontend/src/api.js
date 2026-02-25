@@ -47,6 +47,12 @@ export async function clearHistory() {
     return handleResponse(res)
 }
 
+/** DELETE /api/history/:index */
+export async function deleteHistoryEntry(index) {
+    const res = await fetch(`${BASE}/history/${index}`, { method: 'DELETE' })
+    return handleResponse(res)
+}
+
 /** POST /api/ingest */
 export async function triggerIngest(force = true) {
     const res = await fetch(`${BASE}/ingest?force=${force}`, { method: 'POST' })
