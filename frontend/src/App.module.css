@@ -3,7 +3,7 @@
     flex-direction: column;
     height: 100dvh;
     overflow: hidden;
-    background: var(--color-bg);
+    background: transparent;
 }
 
 /* ── Main scrollable area ────────────────────────────────────────────────── */
@@ -14,13 +14,19 @@
 }
 
 .feed {
-    max-width: 780px;
+    max-width: 800px;
     margin: 0 auto;
     padding: var(--space-8) var(--space-6) var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
     min-height: 100%;
+}
+
+@media (max-width: 520px) {
+    .feed {
+        padding: var(--space-5) var(--space-4) var(--space-3);
+    }
 }
 
 .anchor {
@@ -36,34 +42,35 @@
 }
 
 .typingAvatar {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     background: var(--color-surface);
-    border: 1.5px solid var(--color-border);
+    border: 2px solid var(--color-border);
     color: var(--color-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    box-shadow: var(--shadow-xs);
 }
 
 .typingBubble {
     background: var(--color-surface);
     border: 1.5px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     border-bottom-left-radius: var(--radius-sm);
     padding: var(--space-3) var(--space-5);
     display: flex;
     align-items: center;
     gap: 5px;
-    box-shadow: var(--shadow-xs);
+    box-shadow: var(--shadow-sm);
 }
 
 .dot {
-    width: 6px;
-    height: 6px;
-    background: var(--color-primary);
+    width: 7px;
+    height: 7px;
+    background: linear-gradient(135deg, var(--color-primary), #818cf8);
     border-radius: 50%;
     animation: pulse 1.3s ease-in-out infinite;
     flex-shrink: 0;
@@ -82,4 +89,5 @@
     color: var(--color-text-subtle);
     margin-left: var(--space-2);
     font-style: italic;
+    font-weight: 500;
 }

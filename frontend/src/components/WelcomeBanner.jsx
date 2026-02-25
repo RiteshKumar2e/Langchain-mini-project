@@ -30,19 +30,22 @@ export default function WelcomeBanner({ onSuggestion }) {
             {/* ── Hero ── */}
             <div className={styles.hero}>
                 <div className={styles.logoWrap}>
-                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                        <rect width="36" height="36" rx="10" fill="var(--color-primary)" />
-                        <circle cx="18" cy="18" r="4" fill="white" opacity="0.9" />
-                        <path d="M18 9v4M18 23v4M9 18h4M23 18h4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                        <path d="M11.5 11.5l2.8 2.8M21.7 21.7l2.8 2.8M11.5 24.5l2.8-2.8M21.7 14.3l2.8-2.8"
-                            stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+                    <svg width="38" height="38" viewBox="0 0 36 36" fill="none">
+                        <circle cx="18" cy="18" r="5" fill="white" opacity="0.95" />
+                        <path d="M18 7v5M18 24v5M7 18h5M24 18h5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+                        <path d="M10.5 10.5l3.5 3.5M22 22l3.5 3.5M10.5 25.5l3.5-3.5M22 14l3.5-3.5"
+                            stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.65" />
                     </svg>
                 </div>
-                <h1 className={styles.title}>RAG Knowledge Assistant</h1>
-                <p className={styles.subtitle}>
-                    Ask questions and get grounded answers from a curated knowledge base.
-                    Every response cites its sources so you can verify and explore further.
-                </p>
+
+                <div className={styles.headingGroup}>
+                    <span className={styles.eyebrow}>AI-Powered Knowledge Base</span>
+                    <h1 className={styles.title}>RAG Knowledge Assistant</h1>
+                    <p className={styles.subtitle}>
+                        Ask questions and get grounded answers from a curated knowledge base.
+                        Every response cites its sources so you can verify and explore further.
+                    </p>
+                </div>
 
                 <div className={styles.capabilities}>
                     {CAPABILITIES.map(c => (

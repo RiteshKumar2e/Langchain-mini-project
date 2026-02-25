@@ -17,17 +17,19 @@ function HistoryItem({ entry, index }) {
         <div className={`${styles.item} ${entry.error ? styles.itemError : ''}`}>
             <button className={styles.itemHeader} onClick={() => setExpanded(v => !v)}>
                 <div className={styles.itemMeta}>
-                    <span className={styles.itemIndex}>#{index + 1}</span>
-                    <span className={styles.itemDate}>{date}</span>
+                    <div className={styles.itemLeft}>
+                        <span className={styles.itemIndex}>#{index + 1}</span>
+                        <span className={styles.itemDate}>{date}</span>
+                    </div>
+                    <svg
+                        className={`${styles.chevron} ${expanded ? styles.chevronOpen : ''}`}
+                        width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2.5"
+                    >
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
                 </div>
                 <p className={styles.itemQuestion}>{entry.question}</p>
-                <svg
-                    width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5"
-                    style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}
-                >
-                    <polyline points="6 9 12 15 18 9" />
-                </svg>
             </button>
 
             {expanded && (
@@ -82,8 +84,14 @@ export default function HistoryPanel({ isOpen, onClose }) {
             {/* Panel */}
             <aside className={`${styles.panel} ${isOpen ? styles.open : ''}`}>
                 <div className={styles.panelHeader}>
-                    <div>
-                        <h2 className={styles.panelTitle}>History</h2>
+                    <div className={styles.panelTitleGroup}>
+                        <div className={styles.panelTitleRow}>
+                            <svg className={styles.panelIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            <h2 className={styles.panelTitle}>History</h2>
+                        </div>
                         <p className={styles.panelSub}>{entries.length} recent interaction{entries.length !== 1 ? 's' : ''}</p>
                     </div>
                     <div className={styles.panelActions}>
@@ -108,10 +116,15 @@ export default function HistoryPanel({ isOpen, onClose }) {
                         </div>
                     ) : entries.length === 0 ? (
                         <div className={styles.empty}>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-border-strong)" strokeWidth="1.5">
-                                <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                            </svg>
-                            <p>No history yet. Ask a question to get started.</p>
+                            <div className={styles.emptyIcon}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                    <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p className={styles.emptyTitle}>No history yet</p>
+                                <p className={styles.emptyHint}>Ask a question to get started.<br />Your conversations will appear here.</p>
+                            </div>
                         </div>
                     ) : (
                         <div className={styles.list}>
